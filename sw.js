@@ -1,9 +1,9 @@
-// Versatiles background helper (v34). Unlocks the site's encrypted photos,
+// Versatiles background helper (v35). Unlocks the site's encrypted photos,
 // images, video and music for a logged-in visitor. Files are AES-GCM
 // ciphertext (12-byte IV + ciphertext). The key is held ONLY in memory for the
 // current session: nothing is written to storage, and the key is re-confirmed
 // with an open, logged-in page every 60s. Reload/new tab = password again.
-const VERSION = 'v34';
+const VERSION = 'v35';
 let key = null, keyAt = 0;
 const FRESH = 60 * 1000;
 const RX = /\/(photos|img|audio|vid)\/[^/?#]+$/;
