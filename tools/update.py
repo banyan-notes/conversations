@@ -16,6 +16,9 @@ VERS_PASSWORD environment variable. Never write the password to a file.
   VERS_PASSWORD=... python3 tools/update.py apply <scratch-dir>/pending.json
       Adds the kept messages and photos and re-encrypts the page.
 
+  VERS_PASSWORD=... python3 tools/update.py recap [days]
+      Prints a short "This week on Versatiles" message to paste in WhatsApp.
+
 Conventions kept from the existing site: senders shown by initials (S.K., V.#2...),
 @mentions shown as "@[mention]", other people's names as "[name]", edited
 messages end with " (edited)", system notices and deleted-message notices are
@@ -344,10 +347,42 @@ def apply(pending_path):
     print(f'Added {added} messages ({photos} photos). Site now has {len(D)} messages.')
 
 
+def recap(days=7):
+    """Print a short WhatsApp message summarising the last `days` days on the site."""
+    key = get_key()
+    _, D = load_page(key)
+    end = datetime.date.fromisoformat(D[-1]['d'])
+    start = end - datetime.timedelta(days=days - 1)
+    W = [m for m in D if start <= datetime.date.fromisoformat(m['d']) <= end]
+    if not W:
+        print('No messages in that week.')
+        return
+    from collections import Counter
+    who = Counter(m['s'] for m in W).most_common(3)
+    per_day = Counter(m['d'] for m in W)
+    bd, bn = per_day.most_common(1)[0]
+    first = next((m['x'] for m in W if m['d'] == bd and len(m['x']) > 15 and 'http' not in m['x']), '')
+    first = re.sub(r'\s+', ' ', first)
+    first = first if len(first) <= 70 else first[:67].rsplit(' ', 1)[0] + '…'
+    photos = sum(len(m.get('p', [])) for m in W)
+    sw = open(os.path.join(REPO, 'sw.js')).read()
+    v = (re.search(r"VERSION = 'v(\d+)'", sw) or [None, '1'])[1]
+    fd = lambda d: f'{d.day} {d:%b}'
+    lines = [f'📸 This week on Versatiles ({fd(start)}–{fd(end)})',
+             f'• {len(W)} messages' + (f', {photos} new photos' if photos else ''),
+             '• Most active: ' + ', '.join(f'{s} ({n})' for s, n in who),
+             f'• Busiest day: {datetime.date.fromisoformat(bd):%a} {fd(datetime.date.fromisoformat(bd))}, {bn} messages'
+             + (f' (started with "{first}")' if first else ''),
+             f'Catch up: https://banyan-notes.github.io/conversations/?v={v}']
+    print('\n'.join(lines))
+
+
 if __name__ == '__main__':
     if len(sys.argv) == 4 and sys.argv[1] == 'preview':
         preview(sys.argv[2], sys.argv[3])
     elif len(sys.argv) == 3 and sys.argv[1] == 'apply':
         apply(sys.argv[2])
+    elif len(sys.argv) in (2, 3) and sys.argv[1] == 'recap':
+        recap(int(sys.argv[2]) if len(sys.argv) == 3 else 7)
     else:
         sys.exit(__doc__)
